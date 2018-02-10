@@ -11,6 +11,8 @@ module BitPay
         return get(path: path, token: token)
       when "POST"
         return post(path: path, token: token, params: params)
+      when "PUT"
+        return put(path: path, token: token, params: params)
       else
         raise(BitPayError, "Invalid HTTP verb: #{verb.upcase}")
       end
@@ -31,6 +33,20 @@ module BitPay
     def post(path:, token: nil, params:)
       urlpath = '/' + path
       request = Net::HTTP::Post.new urlpath
+      params[:token] = token if token
+      params[:guid]  = SecureRandom.uuid
+      params[:id] = @client_id
+      request.body = params.to_json
+      if token
+        request['X-Signature'] = KeyUtils.sign(@uri.to_s + urlpath + request.body, @priv_key)
+        request['X-Identity'] = @pub_key
+      end
+      process_request(request)
+    end
+    
+    def put(path:, token: nil, params:)
+      urlpath = '/' + path
+      request = Net::HTTP::Put.new urlpath
       params[:token] = token if token
       params[:guid]  = SecureRandom.uuid
       params[:id] = @client_id
